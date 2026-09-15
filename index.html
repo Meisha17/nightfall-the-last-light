@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NIGHTFALL — The Last Light</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#040508;color:#eee;font-family:system-ui,Arial;overflow:hidden}button,input,select{font:inherit}
+#lobby{min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,#2a222b,#05060a 58%)}.card{width:min(720px,94vw);padding:28px;border-radius:26px;background:#0e1219ee;border:1px solid #3d414b;box-shadow:0 30px 120px #000}
+h1{margin:0;color:#ecd080;letter-spacing:7px;font-size:45px}h2{margin:4px 0 18px;font-size:14px;color:#929bab;font-weight:500}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:10px;color:#929bab;margin:0 0 4px}input,select{width:100%;padding:11px;background:#191e27;border:1px solid #3a4250;color:#fff;border-radius:11px}button{width:100%;padding:12px;border:0;border-radius:11px;background:#eee;color:#111;font-weight:800;cursor:pointer}.gold{background:#ecd080}.tip{color:#7f899a;font-size:12px;line-height:1.5}.full{grid-column:1/-1;display:flex;gap:10px}
+#game{display:none;position:relative;width:100vw;height:100vh}canvas{width:100%;height:100%;display:block}.hud{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;gap:8px}.box{background:#0b0f16dc;border:1px solid #353d4b;border-radius:12px;padding:8px 11px;font-size:12px}.goldtxt{color:#ecd080;font-weight:800}
+#center{position:absolute;top:11%;left:50%;transform:translateX(-50%);max-width:90%;text-align:center;padding:11px 16px;border-radius:14px;background:#0b0f16e8;border:1px solid #3a4352;display:none}#end{display:none;position:absolute;inset:0;place-items:center;background:#000d}.end{width:min(500px,90vw);text-align:center;padding:32px;background:#11151deF;border:1px solid #555;border-radius:24px}.end h1{font-size:35px}
+#touch{display:none;position:absolute;bottom:18px;left:18px;right:18px;justify-content:space-between;pointer-events:none}.d{display:grid;grid-template-columns:44px 44px 44px;grid-template-rows:44px 44px 44px;gap:3px}.d button,.act{pointer-events:auto;background:#ffffff1f;color:#fff;border:1px solid #ffffff22}.up{grid-column:2}.le{grid-row:2}.ri{grid-column:3;grid-row:2}.do{grid-column:2;grid-row:3}.act{width:100px;height:100px;border-radius:50%;background:#ecd080;color:#111}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.full{grid-column:auto;flex-direction:column}h1{font-size:33px}#touch{display:flex}}
+</style></head><body>
+<section id="lobby"><div class="card"><h1>NIGHTFALL</h1><h2>THE LAST LIGHT • VERSION 3 • CO-OP SURVIVAL HORROR</h2>
+<div class="grid">
+<div><label>NAME</label><input id="name" maxlength="16" value="Survivor"></div><div><label>STYLE</label><select id="gender"><option>Female</option><option>Male</option><option>Non-binary</option></select></div>
+<div><label>SKIN TONE</label><select id="skin"><option value="#f6d0b1">Light</option><option value="#d7a27c">Warm tan</option><option value="#a86f4d">Brown</option><option value="#70452f">Deep brown</option><option value="#4b2c20">Deep</option></select></div>
+<div><label>HAIR</label><select id="hair"><option>Long curls</option><option>Short curls</option><option>Locs</option><option>Braids</option><option>High ponytail</option><option>Fade</option><option>Bob</option></select></div>
+<div><label>HAIR COLOUR</label><select id="hairColor"><option value="#17151a">Black</option><option value="#4b2d1e">Brown</option><option value="#b67a42">Caramel</option><option value="#d8d8d8">Silver</option><option value="#6b314a">Burgundy</option></select></div>
+<div><label>OUTFIT</label><select id="outfit"><option value="#7c3145">Burgundy</option><option value="#334d73">Midnight</option><option value="#556b42">Olive</option><option value="#8a6b35">Gold</option><option value="#5b4b78">Plum</option></select></div>
+<div><label>ACCESSORY</label><select id="accessory"><option>None</option><option>Gold necklace</option><option>Headphones</option><option>Cap</option><option>Hair clips</option></select></div>
+<div><label>ROOM CODE</label><input id="code" placeholder="AB12"></div>
+<div class="full"><button class="gold" id="create">CREATE ROOM</button><button id="join">JOIN ROOM</button></div>
+</div><p class="tip"><b>NEW:</b> hiding spots, medkits, stamina, revives, three random monster types, monster aggression, and a larger asylum map. Find the fuses, stay together, and use hiding spots when the lights go out.</p></div></section>
+<section id="game"><canvas id="c"></canvas><div class="hud"><div class="box">ROOM <span id="room" class="goldtxt"></span> • <span id="monsterName"></span></div><div class="box">FUSES <span id="power">0/3</span> • HP <span id="hp">100</span> • STAMINA <span id="stam">100</span></div></div><div id="center"></div>
+<div id="touch"><div class="d"><button class="up" data-dy="-1">▲</button><button class="le" data-dx="-1">◀</button><button class="do" data-dy="1">▼</button><button class="ri" data-dx="1">▶</button></div><button class="act" id="act">USE</button></div>
+<div id="end"><div class="end"><h1 id="endtitle"></h1><p id="endtext"></p><button onclick="location.reload()">PLAY AGAIN</button></div></div></section>
+<script src="/socket.io/socket.io.js"></script><script>
+const socket=io();let me,state,keys={};const cv=document.getElementById('c'),g=cv.getContext('2d');
+function av(){return{gender:gender.value,skin:skin.value,hair:hair.value,hairColor:hairColor.value,outfit:outfit.value,accessory:accessory.value}}
+create.onclick=()=>socket.emit('create',{name:name.value,avatar:av()},r=>r.ok&&enter(r));join.onclick=()=>socket.emit('join',{code:code.value,name:name.value,avatar:av()},r=>r.ok?enter(r):alert(r.error));
+function enter(r){me=r.id;lobby.style.display='none';game.style.display='block';room.textContent=r.code;resize();requestAnimationFrame(loop)}
+socket.on('state',s=>{state=s;monsterName.textContent=s.monsterName;let p=s.players.find(x=>x.id===me);if(p){hp.textContent=p.hp;stam.textContent=Math.round(p.stamina)}power.textContent=s.power+'/3';
+let msg=!s.started?'Press SPACE to begin the nightmare':s.ended?'':s.power<3?'Find the glowing fuses • E/USE to interact':'POWER RESTORED • Reach the EXIT on the right • E/USE';center.textContent=msg;center.style.display=msg?'block':'none';
+if(s.ended){end.style.display='grid';endtitle.textContent=s.winner?'YOU ESCAPED':'THE NIGHT WON';endtext.textContent=s.winner?'Your team made it out of Blackwood Asylum.':'The monster found everyone.'}});
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.code==='Space')socket.emit('start');if(e.key.toLowerCase()==='e')socket.emit('interact');if(e.key.toLowerCase()==='r')reviveNearby()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+setInterval(()=>{let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);if(dx||dy)socket.emit('move',{dx,dy})},50);
+function reviveNearby(){let p=state?.players.find(x=>x.id===me);if(!p)return;for(const q of state.players)if(q.down&&Math.hypot(p.x-q.x,p.y-q.y)<75){socket.emit('revive',q.id);return}}
+act.onclick=()=>{if(state){reviveNearby();socket.emit('interact')}};
+document.querySelectorAll('.d button').forEach(b=>b.onpointerdown=()=>socket.emit('move',{dx:+(b.dataset.dx||0),dy:+(b.dataset.dy||0)}));
+function resize(){cv.width=innerWidth;cv.height=innerHeight}addEventListener('resize',resize);
+function sc(x,y){let p=state.players.find(p=>p.id===me)||{x:700,y:470};return[x-p.x+cv.width/2,y-p.y+cv.height/2]}
+function draw(a,x,y){g.save();g.translate(x,y);g.fillStyle='#0009';g.beginPath();g.ellipse(0,21,17,7,0,0,7);g.fill();g.fillStyle=a.outfit;g.fillRect(-13,-2,26,28);g.fillStyle=a.skin;g.beginPath();g.arc(0,-15,11,0,7);g.fill();g.fillStyle=a.hairColor;
+if(a.hair==='Bob'){g.beginPath();g.arc(0,-16,15,0,7);g.fill();g.fillStyle=a.skin;g.beginPath();g.arc(0,-13,10,0,7);g.fill()}else{g.beginPath();g.arc(0,-18,14,Math.PI,Math.PI*2);g.fill();if(a.hair.includes('curls'))for(let i=-9;i<10;i+=5){g.beginPath();g.arc(i,-27,4,0,7);g.fill()}if(a.hair==='Braids'||a.hair==='Locs'){g.fillRect(-16,-20,5,25);g.fillRect(11,-20,5,25)}if(a.hair==='Fade')g.clearRect(-10,-28,20,5)}
+if(a.accessory==='Gold necklace'){g.strokeStyle='#ecd080';g.beginPath();g.arc(0,2,8,0,3.14);g.stroke()}if(a.accessory==='Headphones'){g.strokeStyle='#aaa';g.beginPath();g.arc(0,-17,16,Math.PI,0);g.stroke()}if(a.accessory==='Cap'){g.fillStyle='#222';g.fillRect(-13,-29,26,6)}g.restore()}
+function loop(){if(!state){requestAnimationFrame(loop);return}g.fillStyle='#151820';g.fillRect(0,0,cv.width,cv.height);let m=state.map;g.strokeStyle='#252a34';g.lineWidth=2;
+for(let x=-1500;x<2800;x+=60){let q=sc(x,0);g.beginPath();g.moveTo(q[0],0);g.lineTo(q[0],cv.height);g.stroke()}for(let y=-1000;y<1900;y+=60){let q=sc(0,y);g.beginPath();g.moveTo(0,q[1]);g.lineTo(cv.width,q[1]);g.stroke()}
+g.fillStyle='#343945';for(const w of m.walls){let q=sc(w[0],w[1]);g.fillRect(q[0],q[1],w[2],w[3])}
+for(const i of state.hides){let q=sc(...m.hides[i]);g.fillStyle='#202b2c';g.fillRect(q[0]-26,q[1]-22,52,44);g.fillStyle='#95a6a3';g.font='10px system-ui';g.fillText('HIDE',q[0]-13,q[1]+4)}
+let ex=sc(...m.exit);g.fillStyle=state.power===3?'#d2b867':'#662e37';g.fillRect(ex[0],ex[1],38,100);g.fillStyle='#fff';g.font='12px system-ui';g.fillText('EXIT',ex[0],ex[1]-8);
+for(const i of state.fuses){let q=sc(...m.fuses[i]);g.fillStyle='#ecd080';g.shadowBlur=28;g.shadowColor='#ecd080';g.beginPath();g.arc(q[0],q[1],9,0,7);g.fill();g.shadowBlur=0}
+for(const i of state.medkits){let q=sc(...m.medkits[i]);g.fillStyle='#eee';g.fillRect(q[0]-11,q[1]-11,22,22);g.fillStyle='#7c3145';g.fillRect(q[0]-3,q[1]-9,6,18);g.fillRect(q[0]-9,q[1]-3,18,6)}
+let mon=sc(state.monster.x,state.monster.y);g.fillStyle='#080808';g.beginPath();g.arc(mon[0],mon[1],30,0,7);g.fill();g.fillStyle='#f0d8c0';g.beginPath();g.arc(mon[0]-8,mon[1]-6,3,0,7);g.arc(mon[0]+8,mon[1]-6,3,0,7);g.fill();
+for(const p of state.players){let q=sc(p.x,p.y);if(!p.hidden)draw(p.avatar,q[0],q[1]);g.fillStyle=p.down?'#e25b5b':'#fff';g.textAlign='center';g.font='12px system-ui';g.fillText(p.down?'DOWN — R':p.hidden?'HIDDEN':p.name,q[0],q[1]-41)}
+let p=state.players.find(x=>x.id===me);let darkness=state.monster.anger>.65?.9:.82;let grd=g.createRadialGradient(cv.width/2,cv.height/2,45,cv.width/2,cv.height/2,Math.min(cv.width,cv.height)*.65);grd.addColorStop(0,'#0000');grd.addColorStop(.42,'#0002');grd.addColorStop(1,`rgba(0,0,0,${darkness})`);g.fillStyle=grd;g.fillRect(0,0,cv.width,cv.height);requestAnimationFrame(loop)}
+</script></body></html>
